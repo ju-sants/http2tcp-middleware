@@ -7,6 +7,9 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
+    LOG_LEVEL: str = "INFO"
+
+    # --- INPUT SOURCES CONFIG ---
     WORKERS_INPUT_SOURCE: Dict[str, Dict[str, str]] = {
        "mt02": {"module_path": "app.src.input.mt02.worker", "func_name": "worker"},
     }
