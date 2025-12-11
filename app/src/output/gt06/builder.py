@@ -192,18 +192,6 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     logger.debug(f"Construído pacote de localização GT06 (Protocol {hex(protocol_number)}): {final_packet.hex()}")
     return final_packet
 
-def imei_to_bcd(imei: str) -> bytes:
-    if len(imei) > 15 or len(imei) < 15 or not imei.isdigit():
-        raise ValueError("IMEI must be a 15-digit string.")
-    
-    imei_padded = "0" + imei
-    bcd_bytes = bytearray()
-    for i in range(0, len(imei_padded), 2):
-        byte_val = (int(imei_padded[i]) << 4) | int(imei_padded[i+1])
-        bcd_bytes.append(byte_val)
-    return bytes(bcd_bytes)
-
-def build_login_packet(imei: str, serial_number: int) -> bytes:
     """
     Constrói um pacote de login GT06.
     """
@@ -319,4 +307,33 @@ def build_voltage_info_packet(packet_data: dict, serial_number: int) -> bytes:
     )
 
     logger.info(f"Construído pacote de Informação (Protocol {hex(protocol_number)}): {final_packet.hex()}")
-    return final_packet
+    return final_packet    return final_packet
+
+def dev_id_to_bcd(dev_id: str) -> bytes:
+    """
+    Encode device id's to BCD encoding (Binary Coded Decimal)
+    
+    :param dev_id: Device Identifier
+    :type dev_id: str
+    :return: Return device's id encoded to BCD.
+    :rtype: bytes
+    """
+
+    # Validating the dev_id
+    if len(dev_id) > 15 or len(dev_id) < 15 or not dev_id.isdigit():
+        raise ValueError("dev_id must be a 15-digit string.")
+    
+    # Padding the dev_id with a 0 to the left to complete a 16 digits string.
+    dev_id_padded = "0" + dev_id
+
+    # Using bytearray to use standard array python methods
+    # Like append and others, here we dinamically append bytes to it  
+    bcd_bytes = bytearray()
+    for i in range(0, len(dev_id_padded), 2): # iterating through the dev_id two digits per iteration
+        # packing the two digits of this iteration into one byte
+        byte_val = (int(dev_id_padded[i]) << 4) | int(dev_id_padded[i+1])
+        # appending to the bytes array
+        bcd_bytes.append(byte_val)
+
+    # merging the bytes in the array to a single packet
+    return bytes(bcd_bytes)
