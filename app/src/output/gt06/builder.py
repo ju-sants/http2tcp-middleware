@@ -12,6 +12,16 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     """
     Builds a GT06 location packet from the "packet_data" data source.
     Suports different types of protocols (protocol_number): 0x22, 0x32, 0xA0 
+    
+    :param dev_id: Device Identifier
+    :type dev_id: str
+    :param packet_data: Structured Dictionary with the necessary data and fields to build the location packet
+    :type packet_data: dict
+    :param serial_number: Number of this packet
+    :type serial_number: int
+    :param args: Optional args, mainteined for compatibility
+    :return: The location binary packet
+    :rtype: bytes
     """
 
     # Note on struct: struct is a python library used to pack python native types (ex: int, string, float, etc...)
@@ -22,6 +32,8 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     # "B" means "Byte" or "One Byte" it tells struct to pack python data into a single byte or to unpack a single byte to a python data
     # "H" means "Word" or "Two bytes" and follows the same logic, so how are "I" and "Q".
 
+    # Protocol Number is a integer identifying the variation of the location packet
+    # variations provide different structures and informations for location packets
     protocol_number = settings.GT06_LOCATION_PACKET_PROTOCOL_NUMBER # We will use the protocol_number specified in settings
 
     # First we get the timestamp from the packet data
@@ -37,7 +49,7 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
         timestamp.second,
     )
 
-    # Now we will mount the gps length and quantity of satellites byte
+    # Now we will mount the gps info length and quantity of satellites byte
     # this byte combine two informations, the gps information length that is fixed to 12 (0xC in Hex)
     # And the quantity of satellites
     packet_satellites = packet_data.get("satellites", 0)
@@ -83,23 +95,28 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     # Finally putting it all together, forming the body of the packet
     content_body = time_bytes + gps_info_byte + lat_lon_bytes + speed_kmh_bytes + course_status_bytes
     
+    # These fields fow now are outside of the content body previously mounted because
+    # They can have different sizes and locations on the packet structure according to the protocol_number
     acc_status = 1 if packet_data.get("acc_status", 1) else 0
     gps_odometer = int(packet_data.get("gps_odometer", 0))
     voltage = float(packet_data.get("voltage", 0.0))
     voltage_raw = int(voltage * 100)
 
-    # Getting the saved LBS information
+    # Mock LBS information
+    # LBS information in the GT06 protocol are numbers identifying the country, mobile network provider, geographic area and the cell network tower
     mcc = 0
     mnc = 0
     lac = 0
     cell_id = 0
 
+    # Packing the fields according to the rules of the 0x12 protocol number
     if protocol_number == 0x12:
         content_body += struct.pack(">H", mcc)
         content_body += struct.pack(">B", mnc)
         content_body += struct.pack(">H", lac)
         content_body += cell_id.to_bytes(3, "big")
 
+    # Packing the fields according to the rules of the 0x22 protocol number
     elif protocol_number == 0x22:
         content_body += struct.pack(">H", mcc)
         content_body += struct.pack(">B", mnc)
@@ -107,10 +124,14 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
         content_body += cell_id.to_bytes(3, "big")
 
         content_body += struct.pack(">B", acc_status)
-        content_body += b'\x00' # Data Upload
-        content_body += b'\x00' # Sempre em tempo real, para que a plataforma principal possa ouvir os pacotes de voltagem
+        content_body += b'\x00' # Data Upload - Upload Mode
+
+        # This field is called "Realtime Positioning" and tells if this packet is in realtime, 
+        # in order to a internal business rule, this field will be fixed at "x00" that means realtime positioning.
+        content_body += b'\x00' 
         content_body += struct.pack(">I", gps_odometer) # Mileage
 
+    # Packing the fields according to the rules of the 0x32 protocol number
     elif protocol_number == 0x32:
         content_body += struct.pack(">H", mcc)
         content_body += struct.pack(">B", mnc)
@@ -119,11 +140,15 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
 
         content_body += struct.pack(">B", acc_status)
         content_body += b'\x00'
-        content_body += b'\x00' # Sempre em tempo real, para que a plataforma principal possa ouvir os pacotes de voltagem
+
+        # This field is called "Realtime Positioning" and tells if this packet is in realtime, 
+        # in order to a internal business rule, this field will be fixed at "x00" that means realtime positioning.
+        content_body += b'\x00'
         content_body += struct.pack(">I", gps_odometer)
         content_body += struct.pack(">H", voltage_raw)
         content_body += b"\x00" * 6
 
+    # Packing the fields according to the rules of the 0xA0 protocol number
     elif protocol_number == 0xA0:
         content_body += struct.pack(">H", mcc)
         content_body += struct.pack(">H", mnc)
@@ -134,19 +159,28 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
 
         content_body += struct.pack(">B", acc_status)
         content_body += b'\x00'
-        content_body += b'\x00' # Sempre em tempo real, para que a plataforma principal possa ouvir os pacotes de voltagem
+
+        # This field is called "Realtime Positioning" and tells if this packet is in realtime, 
+        # in order to a internal business rule, this field will be fixed at "x00" that means realtime positioning.
+        content_body += b'\x00'
         content_body += struct.pack(">I", gps_odometer)
         content_body += struct.pack(">H", voltage_raw)
 
-    # 1 (protocol_number) + len(content_body) + 2 (serial_number) + 2 (CRC)
+    # Creating the length of the packet field that represents the length of the content_body
+    # + protocol number + serial number + CRC Check
     length_value = 1 + len(content_body) + 2 + 2
     length_byte = struct.pack(">B", length_value)
 
+    # Mouting all together and preparing to calculate CRC
     data_for_crc = length_byte + struct.pack(">B", protocol_number) + content_body + struct.pack(">H", serial_number)
-    
+
+    # CRC: Its a corruption checking algorithm, it uses a series of calculations to get a final number
+    # If the receiver of the packet calculate the CRC of the packet and it is not equal to this CRC calculated here
+    # Means that the packet is corrupted, data have been lost, or other infinite causes to this.   
     crc = crc_itu(data_for_crc)
     crc_bytes = struct.pack(">H", crc)
 
+    # Finally mouting the final packet
     final_packet = (
         b"\x78\x78" +
         data_for_crc +
@@ -154,6 +188,7 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
         b"\x0d\x0a"
     )
 
+    # Returning it
     logger.debug(f"Construído pacote de localização GT06 (Protocol {hex(protocol_number)}): {final_packet.hex()}")
     return final_packet
 
