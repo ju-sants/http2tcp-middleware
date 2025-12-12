@@ -15,6 +15,9 @@ class Settings(BaseSettings):
        "mt02": {"module_path": "app.src.input.mt02.worker", "func_name": "worker"},
     }
 
+    # MT02 Input Source Config
+    MT02_API_BASE_URL: str = "..."
+    MT02_API_KEY: str = "..."
 
     # --- OUTPUT PROTOCOLS CONFIG ---
     # GT06
