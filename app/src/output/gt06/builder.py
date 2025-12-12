@@ -247,43 +247,63 @@ def build_login_packet(dev_id: str, serial_number: int) -> bytes:
     return full_packet
 
 
-def build_heartbeat_packet(dev_id: str, *args) -> bytes:
+def build_heartbeat_packet(dev_id: str, acc_status: int, output_status: int, serial_number: int, voltage_level: int, *args) -> bytes:
     """
-    Controi um pacote de Heartbeat GT06.
+    Build a HeartBeat Packet (HBT) used to keep the TCP connection alive
+    when the device does not send data very often
+    
+    :param dev_id: Device Identifier
+    :type dev_id: str
+    :param acc_status: Used for devices that are connected to a vehicle ignition system
+    :type acc_status: int
+    :param output_status: Used to indicate the status of the output port in devices that support this feature
+    :type output_status: int
+    :param serial_number: Number of this packet
+    :type serial_number: int
+    :param voltage_level: Voltage level of the device battery
+    :type voltage_level: int
+    :param args: Optional args, mainteined for compatibility
+    :return: Returns the heartbeat binary packet
+    :rtype: bytes
     """
+    
+    logger.info(f"Building GT06 Heartbeat packet for device {dev_id} with ACC status {acc_status}, Output status {output_status}, Voltage level {voltage_level} and Serial number {serial_number}")
 
-    protocol_number = struct.pack(">B", 0x13)
+    # The default protocol number for login packets is 0x13
+    protocol_number = 0x13
 
-    acc_status = 1
-    last_output_status = 0
-    serial = 0
-
-    terminal_info_content = (int(last_output_status) << 7) | (1 << 6) | (1 << 2) | (int(acc_status) << 1) | 1
+    # Merging these values using a mask (OR) into a single byte
+    terminal_info_content = (int(output_status) << 7) | (1 << 6) | (1 << 2) | (int(acc_status) << 1) | 1
     terminal_info_content_bytes = struct.pack(">B", terminal_info_content)
 
-    voltage_level = struct.pack(">B", 6)
-    gsm_signal_strenght = struct.pack(">B", 0x04)
-    alarm = struct.pack(">B", 0x00)
-    language = struct.pack(">B", 0x02)
-    serial = struct.pack(">H", int(serial))
+    # Packing the other data to bytes
+    voltage_level_bytes = struct.pack(">B", voltage_level)
+    gsm_signal_strenght_bytes = struct.pack(">B", 0x04)
+    alarm_bytes = struct.pack(">B", 0x00)
+    language_bytes = struct.pack(">B", 0x02)
+    serial_bytes = struct.pack(">H", int(serial_number))
 
+    # Mounting it together
     data_for_crc = (
-        protocol_number +
+        struct.pack(">B", protocol_number) +
         terminal_info_content_bytes +
-        voltage_level +
-        gsm_signal_strenght +
-        alarm +
-        language +
-        serial
+        voltage_level_bytes +
+        gsm_signal_strenght_bytes +
+        alarm_bytes +
+        language_bytes +
+        serial_bytes
     )
 
+    # Calculating the length of the packet
     packet_lenght = len(data_for_crc)
 
+    # Mouting it together
     data_for_crc = (struct.pack(">B", packet_lenght) + data_for_crc)
 
     # Calculating the CRC error check
     crc = gt06_utils.crc_itu(data_for_crc)
 
+    # Mouting the final packet
     full_packet = (
         b"\x78\x78" + 
         data_for_crc +
