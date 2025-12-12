@@ -6,13 +6,18 @@ from app.config.settings import settings
 
 logger = get_logger(__name__)
 
+# -- MT02ApiClient class definition -- 
+# This class handles communication with the MT02 manufacturer API.
+# Making a client class allows for better organization and reuse of API interaction logic.
 class MT02ApiClient:
+    # Constructor to initialize the API client with the necessary API key.
     def __init__(self, api_key: str):
-        if not api_key:
+        if not api_key: # Ensure an API key is provided
             raise ValueError("API key must be provided")
         
         self.api_key = api_key
     
+    # Helper method to construct headers for API requests.
     def _get_headers(self):
         return {
             "api_token": self.api_key,
@@ -20,6 +25,7 @@ class MT02ApiClient:
             "Content-Type": "application/json"
         }
     
+    # Method to fetch the list of devices from the MT02 API.
     def fetch_devices(self):
         try:
 
@@ -31,6 +37,7 @@ class MT02ApiClient:
         except Exception as e:
             logger.info(f"Unexpected error: {e}")
 
+    # Method to fetch location data for a specific device by its ID.
     def fetch_device_location(self, device_id: str):
         try:
             url = f"{settings.MT02_API_BASE_URL}/tag"
@@ -48,6 +55,7 @@ class MT02ApiClient:
         except Exception as e:
             logger.info(f"Unexpected error: {e}")
 
+    # Method to fetch location data for all devices.
     def fetch_all(self):
         try:
             devices = self.fetch_devices()
