@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict
+import os
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -26,6 +27,12 @@ class Settings(BaseSettings):
     MT02_API_KEY: str = "..."
 
     # --- OUTPUT PROTOCOLS CONFIG ---
+    # GENERAL
+    OUTPUT_PROTOCOL_HOST_ADRESSES: Dict[str, tuple] = {
+        "suntech4g": (os.getenv("SUNTECH_MAIN_SERVER_HOST"), os.getenv("SUNTECH_MAIN_SERVER_PORT")),
+        "gt06": (os.getenv("GT06_MAIN_SERVER_HOST"), os.getenv("GT06_MAIN_SERVER_PORT"))
+    }
+
     # GT06
     GT06_LOCATION_PACKET_PROTOCOL_NUMBER: int = 0xA0 # Can be: 0x22, 0x32, 0xA0. For more informations consult the protocol guide.
 
