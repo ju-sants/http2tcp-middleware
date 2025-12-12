@@ -316,21 +316,33 @@ def build_heartbeat_packet(dev_id: str, acc_status: int, output_status: int, ser
     return full_packet
 
 
-def build_voltage_info_packet(packet_data: dict, serial_number: int) -> bytes:
+def build_voltage_info_packet(dev_id: str, voltage: float, serial_number: int) -> bytes:
     """
-    Constrói um pacote de informação (Protocolo 0x94),
-    enviando exclusivamente a informação de voltagem externa (Sub-protocolo 0x00).
+    Builds a information packet
+    Sending exclusively the external voltage information
+    
+    :param dev_id: Device Identifier
+    :type dev_id: str
+    :param voltage: the voltage to be sent
+    :type voltage: float
+    :param serial_number: the number of this packet
+    :type serial_number: int
+    :return: information binary packet
+    :rtype: bytes
     """
 
     logger.info(f"Building GT06 Information packet for device {dev_id} with voltage {voltage} and serial number {serial_number}")
 
+    # The protocol number for information packets is 0x94
     protocol_number = 0x94
+    # In information packets there are sub-protocols, for voltage information the sub-protocol number is 0x00
     sub_protocol_number = 0x00
 
-    voltage = float(packet_data.get("voltage", 0.0))
+    # Packing the voltage information
     voltage_raw = int(voltage * 100)
     information_content = struct.pack(">H", voltage_raw)
 
+    # Mounting the body of the packet
     body_packet = (
         struct.pack(">B", protocol_number) +
         struct.pack(">B", sub_protocol_number) +
@@ -338,15 +350,18 @@ def build_voltage_info_packet(packet_data: dict, serial_number: int) -> bytes:
         struct.pack(">H", serial_number)
     )
 
+    # Calculating the length of the packet
     packet_length_value = len(body_packet) + 2
     packet_length_bytes = struct.pack(">H", packet_length_value)
 
+    # Mouting it all together to calculate the CRC
     data_for_crc = packet_length_bytes + body_packet
     
     # Calculating the CRC error check
     crc = gt06_utils.crc_itu(data_for_crc)
     crc_bytes = struct.pack(">H", crc)
 
+    # Mouting the final packet
     final_packet = (
         b"\x79\x79" + 
         data_for_crc +
