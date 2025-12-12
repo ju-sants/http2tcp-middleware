@@ -3,7 +3,7 @@ from datetime import datetime
 
 from app.core.logger import get_logger
 from ..utils import crc_itu
-from ..utils import get_output_dev_id
+from . import utils as gt06_utils
 from app.config.settings import settings
 
 logger = get_logger(__name__)
@@ -177,7 +177,7 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     # CRC: Its a corruption checking algorithm, it uses a series of calculations to get a final number
     # If the receiver of the packet calculate the CRC of the packet and it is not equal to this CRC calculated here
     # Means that the packet is corrupted, data have been lost, or other infinite causes to this.   
-    crc = crc_itu(data_for_crc)
+    crc = gt06_utils.crc_itu(data_for_crc)
     crc_bytes = struct.pack(">H", crc)
 
     # Finally mouting the final packet
@@ -212,7 +212,8 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
 
     data_for_crc = struct.pack(">B", packet_length_value) + packet_content_for_crc
 
-    crc = crc_itu(data_for_crc)
+    # Calculating CRC error check
+    crc = gt06_utils.crc_itu(data_for_crc)
 
     full_packet = (
         b"\x78\x78" +
@@ -260,7 +261,8 @@ def build_heartbeat_packet(dev_id: str, *args) -> bytes:
 
     data_for_crc = (struct.pack(">B", packet_lenght) + data_for_crc)
 
-    crc = crc_itu(data_for_crc)
+    # Calculating the CRC error check
+    crc = gt06_utils.crc_itu(data_for_crc)
 
     full_packet = (
         b"\x78\x78" + 
@@ -296,7 +298,8 @@ def build_voltage_info_packet(packet_data: dict, serial_number: int) -> bytes:
 
     data_for_crc = packet_length_bytes + body_packet
     
-    crc = crc_itu(data_for_crc)
+    # Calculating the CRC error check
+    crc = gt06_utils.crc_itu(data_for_crc)
     crc_bytes = struct.pack(">H", crc)
 
     final_packet = (
