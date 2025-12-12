@@ -14,4 +14,9 @@ class Settings(BaseSettings):
        "mt02": {"module_path": "app.src.input.mt02.worker", "func_name": "worker"},
     }
 
+
+    # --- OUTPUT PROTOCOLS CONFIG ---
+    # GT06
+    GT06_LOCATION_PACKET_PROTOCOL_NUMBER: int = 0xA0 # Can be: 0x22, 0x32, 0xA0. For more informations consult the protocol guide.
+
 settings = Settings()
