@@ -9,25 +9,34 @@ from app.src.output.output_mappers import output_mappers
 
 logger = get_logger(__name__)
 
+# This class manages the session with the main server
+# It handles connection, disconnection, sending and receiving data
+# It also manages protocol-specific behaviors
+# Such as login steps and packet formatting
 class MainServerSession:
     def __init__(self, device_id: str, input_source: str, output_protocol: str):
+
+        # Device identifier
         self.device_id = device_id
 
+        # Input source module name (e.g., "mt02", "suntech4g")
         self.input_source = input_source
-        self.output_protocol = output_protocol
+        self.output_protocol = output_protocol # Output protocol type (e.g., "gt06", "suntech4g")
 
+        # Socket for TCP communication with the main server
         self.sock: socket.socket | None = None
-        self.lock = threading.RLock()
+        self.lock = threading.RLock() # To manage concurrent access to the socket and use recursive calls
 
-        self._is_gt06_login_step = False
-        self._is_connected = False
+        # State flags
+        self._is_gt06_login_step = False # Flag to indicate if in GT06 login step
+        self._is_connected = False # Flag to indicate if connected to the main server
     
     def connect(self):
         """
         Establish connection to the main server based on the output protocol.
         """
 
-        with self.lock:
+        with self.lock: # Ensure thread-safe access
             if self._is_connected:
                 return True
 
@@ -36,6 +45,7 @@ class MainServerSession:
                     logger.info(f"It is not possible to start connection to main server, output protocol type is not defined. input_source: {self.input_source}")
                     return
                 
+                # Get the server address based on the output protocol
                 address = settings.OUTPUT_PROTOCOL_HOST_ADRESSES.get(self.output_protocol)
 
                 if not address:
@@ -46,9 +56,11 @@ class MainServerSession:
                 self.sock = socket.create_connection(address, timeout=5)
                 self._is_connected = True
 
+                # Start a thread to listen for incoming data from the main server
                 logger.info(f"Initiating thread to listen for incoming data from main server...")
                 threading.Thread(target=self._listen_to_server, daemon=True).start()
-
+                
+                # Initiate protocol-specific connection presentation
                 self._present_connection()
 
                 logger.info(f"Connection and listener thread established successfully.")
@@ -73,7 +85,7 @@ class MainServerSession:
             try:
                 if self.sock:
                     try:
-                        self.sock.shutdown(socket.SHUT_RDWR)
+                        self.sock.shutdown(socket.SHUT_RDWR) # Shutdown both send and receive
                     except Exception as e:
                         logger.warning(f"Error during socket shutdown: {e}")
                         pass
@@ -92,7 +104,8 @@ class MainServerSession:
         Send initial data to present the connection to the main server.
         This is protocol-specific.
         """
-
+        
+        # Get the login packet builder for the current output protocol
         packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol).get("login")
         if not packet_builder:
             logger.warning(f"No login packet builder defined for protocol {self.output_protocol}. Skipping login step.")
@@ -105,6 +118,7 @@ class MainServerSession:
         elif self.output_protocol == "suntech4g":
             logger.info(f"Sending Suntech4G MNT login packet...")
         
+        # Build and send the login packet
         login_packet = packet_builder(self.device_id, 0)
         self._send_data(login_packet, self.output_protocol, "login")
 
@@ -121,33 +135,38 @@ class MainServerSession:
                     logger.error(f"Socket is not connected. Cannot listen to server.")
                     return
 
-                data = self.sock.recv(4096)
+                data = self.sock.recv(4096) # Receive up to 4096 bytes
                 if not data:
                     logger.warning(f"Connection to main server lost.")
                     self.disconnect()
                     return
 
-                if self._is_gt06_login_step and packet_type != "login":
+                # If in GT06 login step and data is received, consider login step complete
+                if self._is_gt06_login_step:
                     logger.info(f"GT06 login step completed.")
                     self._is_gt06_login_step = False
                     continue
-
+                
+                # Else process the incoming data as a command
                 mapper_func = output_mappers.OUTPUT_COMMAND_MAPPERS.get(self.output_protocol)
                 if not mapper_func:
                     logger.warning(f"No command mapper defined for protocol {self.output_protocol}. Cannot process incoming data.")
                     continue
-
+                
+                # Map the incoming data to a universal command format
                 universal_command = mapper_func(data)
                 if not universal_command:
                     logger.warning(f"Failed to map incoming data to universal command for protocol {self.output_protocol}.")
                     continue
-
+                
+                # Dynamically import the target input module's command processor
                 target_module = importlib.import_module(f"app.src.input.{self.input_source}.builder")
                 builder_func = getattr(target_module, f"process_command", None)
                 if not builder_func:
                     logger.warning(f"No command processor defined in module for protocol {self.output_protocol}.")
                     continue
-
+                
+                # Forward the universal command to the input processor
                 logger.info(f"Routing command to input processor {self.input_source} for protocol {self.output_protocol}.")
                 builder_func(self.device_id, universal_command)
 
@@ -186,6 +205,7 @@ class MainServerSession:
                     logger.error(f"Cannot send data, not connected to main server.")
                     return
 
+            # Check if output protocol has changed
             if current_output_protocol and current_output_protocol.lower() != self.output_protocol:
                 logger.warning(f"Output protocol changed from {self.output_protocol} to {current_output_protocol}. Reconnecting...")
                 
@@ -194,7 +214,8 @@ class MainServerSession:
                 if not self.connect():
                     logger.error(f"Reconnection failed after output protocol change.")
                     return
-                
+            
+            # Handle protocol-specific behaviors before sending data
             if self._is_gt06_login_step and packet_type != "login":
                 logger.info(f"Currently in GT06 login step, delaying data send.")
                 
@@ -203,6 +224,7 @@ class MainServerSession:
 
                 logger.info(f"GT06 login step completed, proceeding to send data.")
 
+            # For GT06 protocol, send a Voltage packet before location data
             if self.output_protocol == "gt06" and packet_type == "location":
                 logger.info(f"Sending Voltage packet before location data for GT06 protocol.")
                 voltage_packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol).get("info")
@@ -215,7 +237,8 @@ class MainServerSession:
                         logger.error(f"Failed to send Voltage packet to main server: {e}")
                         self.disconnect()
                         return
-                
+            
+            # Send the actual data packet
             try:
                 self.sock.sendall(data)
                 logger.info(f"Sent data to main server: {data.hex()}")
