@@ -7,8 +7,10 @@ from app.config.settings import settings
 logger = get_logger(__name__)
 
 class MainServerSession:
-    def __init__(self, device_id: str, output_protocol: str):
+    def __init__(self, device_id: str, input_source: str, output_protocol: str):
         self.device_id = device_id
+
+        self.input_source = input_source
         self.output_protocol = output_protocol
 
         self.sock: socket.socket | None = None
@@ -28,16 +30,16 @@ class MainServerSession:
 
             try:
                 if not self.output_protocol:
-                    logger.info(f"It is not possible to start connection to main server, output protocol type is not defined.")
+                    logger.info(f"It is not possible to start connection to main server, output protocol type is not defined. input_source: {self.input_source}")
                     return
                 
                 address = settings.OUTPUT_PROTOCOL_HOST_ADRESSES.get(self.output_protocol)
 
                 if not address:
-                    logger.info(f"Unknown output protocol type: {self.output_protocol}. Cannot connect to main server.")
+                    logger.info(f"Unknown output protocol type: {self.output_protocol}. Cannot connect to main server. input_source: {self.input_source}")
                     return
 
-                logger.info(f"Connecting to main server at {address} using protocol {self.output_protocol}...")
+                logger.info(f"Connecting to main server at {address} using protocol {self.output_protocol} input_source: {self.input_source}...")
                 self.sock = socket.create_connection(address, timeout=5)
                 self._is_connected = True
 
