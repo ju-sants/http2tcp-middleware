@@ -32,6 +32,8 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     # "B" means "Byte" or "One Byte" it tells struct to pack python data into a single byte or to unpack a single byte to a python data
     # "H" means "Word" or "Two bytes" and follows the same logic, so how are "I" and "Q".
 
+    logger.info(f"Building GT06 Location packet for device {dev_id} with serial number {serial_number} and data: {packet_data}")
+
     # Protocol Number is a integer identifying the variation of the location packet
     # variations provide different structures and informations for location packets
     protocol_number = settings.GT06_LOCATION_PACKET_PROTOCOL_NUMBER # We will use the protocol_number specified in settings
@@ -195,6 +197,9 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     """
     Constrói um pacote de login GT06.
     """
+
+    logger.info(f"Building GT06 Login packet for device {dev_id} with serial number {serial_number}")
+
     protocol_number = 0x01
 
     output_imei = get_output_dev_id(imei, "gt06")
@@ -279,6 +284,9 @@ def build_voltage_info_packet(packet_data: dict, serial_number: int) -> bytes:
     Constrói um pacote de informação (Protocolo 0x94),
     enviando exclusivamente a informação de voltagem externa (Sub-protocolo 0x00).
     """
+
+    logger.info(f"Building GT06 Information packet for device {dev_id} with voltage {voltage} and serial number {serial_number}")
+
     protocol_number = 0x94
     sub_protocol_number = 0x00
 
