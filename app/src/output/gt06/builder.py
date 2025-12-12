@@ -194,32 +194,46 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     logger.debug(f"GT06 Location packet built (Protocol {hex(protocol_number)}): {final_packet.hex()}")
     return final_packet
 
+def build_login_packet(dev_id: str, serial_number: int) -> bytes:
     """
-    Constrói um pacote de login GT06.
+    Builds the login packet
+    
+    :param dev_id: Device Identifier
+    :type dev_id: str
+    :param serial_number: The number of this packet
+    :type serial_number: int
+    :return: The login binary packet
+    :rtype: bytes
     """
 
     logger.info(f"Building GT06 Login packet for device {dev_id} with serial number {serial_number}")
 
+    # The default protocol number for login packets is 0x01
     protocol_number = 0x01
 
-    output_imei = get_output_dev_id(imei, "gt06")
+    # Getting the output device id for this device (the output id is a normalized id according to the GT06 rules)
+    output_dev_id = output_utils.get_output_dev_id(dev_id, "gt06")
 
-    imei_bcd = imei_to_bcd(output_imei)
+    # Encoding the normalized device id to BCD - Binary Encoded Decimal 
+    dev_id_bcd = gt06_utils.dev_id_to_bcd(output_dev_id)
 
+    # Mouting it together
     packet_content_for_crc = (
         struct.pack(">B", protocol_number) +
-        imei_bcd +
+        dev_id_bcd +
         struct.pack(">H", serial_number)
     )
 
-    # 1 (protocol) + 8 (IMEI) + 2 (serial) + 2 (CRC placeholder)
+    # Calculating the length of the packet
     packet_length_value = len(packet_content_for_crc) + 2
 
+    # Mouting it together
     data_for_crc = struct.pack(">B", packet_length_value) + packet_content_for_crc
 
     # Calculating CRC error check
     crc = gt06_utils.crc_itu(data_for_crc)
 
+    # Mounting the full final packet
     full_packet = (
         b"\x78\x78" +
         struct.pack(">B", packet_length_value) +
