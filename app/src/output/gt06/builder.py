@@ -191,7 +191,7 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
     )
 
     # Returning it
-    logger.debug(f"Construído pacote de localização GT06 (Protocol {hex(protocol_number)}): {final_packet.hex()}")
+    logger.debug(f"GT06 Location packet built (Protocol {hex(protocol_number)}): {final_packet.hex()}")
     return final_packet
 
     """
@@ -228,7 +228,8 @@ def build_location_packet(dev_id: str, packet_data: dict, serial_number: int, *a
         b"\x0d\x0a"
     )
 
-    logger.debug(f"Construído pacote de login GT06: {full_packet.hex()}")
+    # Returning it
+    logger.debug(f"GT06 login packet built: {full_packet.hex()}")
     return full_packet
 
 
@@ -276,6 +277,8 @@ def build_heartbeat_packet(dev_id: str, *args) -> bytes:
         b"\x0D\x0A"
     )
 
+    # returning it
+    logger.debug(f"GT06 heartbeat packet built: {full_packet.hex()}")
     return full_packet
 
 
@@ -317,6 +320,6 @@ def build_voltage_info_packet(packet_data: dict, serial_number: int) -> bytes:
         b"\x0d\x0a"   
     )
 
-    logger.info(f"Construído pacote de Informação (Protocol {hex(protocol_number)}): {final_packet.hex()}")
-    return final_packet    return final_packet
-
+    # Returning it
+    logger.info(f"GT06 Information packet built (Protocol {hex(protocol_number)}): {final_packet.hex()}")
+    return final_packet
