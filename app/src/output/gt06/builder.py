@@ -2,7 +2,7 @@ import struct
 from datetime import datetime
 
 from app.core.logger import get_logger
-from ..utils import crc_itu
+from .. import utils as output_utils
 from . import utils as gt06_utils
 from app.config.settings import settings
 
