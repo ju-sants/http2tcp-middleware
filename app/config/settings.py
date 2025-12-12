@@ -10,6 +10,12 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
+    # --- REDIS CONFIG ---
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str = ""
+    REDIS_DB_MAIN: int = 15
+
     # --- INPUT SOURCES CONFIG ---
     WORKERS_INPUT_SOURCE: Dict[str, Dict[str, str]] = {
        "mt02": {"module_path": "app.src.input.mt02.worker", "func_name": "worker"},
