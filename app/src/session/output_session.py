@@ -1,6 +1,7 @@
 import socket
 import threading
 import importlib
+import time
 
 from app.core.logger import get_logger
 from app.config.settings import settings
@@ -170,3 +171,55 @@ class MainServerSession:
                 logger.error(f"Unexpected error while listening to server: {e}")
                 self.disconnect()
                 return
+            
+    def _send_data(self, data: bytes, current_output_protocol: str = None, packet_type: str = "location"):
+        """
+        Send data to the main server.
+        
+        :param data: Data to send
+        :type data: bytes
+        """
+
+        with self.lock:
+            if not self._is_connected or not self.sock:
+                if not self.connect():
+                    logger.error(f"Cannot send data, not connected to main server.")
+                    return
+
+            if current_output_protocol and current_output_protocol.lower() != self.output_protocol:
+                logger.warning(f"Output protocol changed from {self.output_protocol} to {current_output_protocol}. Reconnecting...")
+                
+                self.disconnect()
+                self.output_protocol = current_output_protocol
+                if not self.connect():
+                    logger.error(f"Reconnection failed after output protocol change.")
+                    return
+                
+            if self._is_gt06_login_step and packet_type != "login":
+                logger.info(f"Currently in GT06 login step, delaying data send.")
+                
+                while self._is_gt06_login_step:
+                    time.sleep(0.1)
+
+                logger.info(f"GT06 login step completed, proceeding to send data.")
+
+            if self.output_protocol == "gt06" and packet_type == "location":
+                logger.info(f"Sending Voltage packet before location data for GT06 protocol.")
+                voltage_packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol).get("info")
+                if voltage_packet_builder:
+                    voltage_packet = voltage_packet_builder(self.device_id, voltage=1.11, serial_number=0)
+                    try:
+                        self.sock.sendall(voltage_packet)
+                        logger.info(f"Sent Voltage packet to main server: {voltage_packet.hex()}")
+                    except Exception as e:
+                        logger.error(f"Failed to send Voltage packet to main server: {e}")
+                        self.disconnect()
+                        return
+                
+            try:
+                self.sock.sendall(data)
+                logger.info(f"Sent data to main server: {data.hex()}")
+
+            except Exception as e:
+                logger.error(f"Failed to send data to main server: {e}")
+                self.disconnect()
