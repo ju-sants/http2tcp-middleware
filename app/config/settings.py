@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Dict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
