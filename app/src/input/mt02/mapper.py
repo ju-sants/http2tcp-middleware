@@ -22,17 +22,10 @@ def map_location_data(device_id: str, location: dict) -> dict:
 
     logger.info(f"Mapping location data for device {device_id}: {location}")
 
-    # The timestamp of the MT02 tag is in UTC-3 timezone
-    # But the majority of geolocation server accept only UTC time zones
-    # So we adding 3 more hours to the date time
-
-    # First converting it
+    # First converting the timestamp
     date_time = datetime.fromtimestamp(location.get("timestamp", 0))
 
-    # Then adding the hours
-    date_time += relativedelta(hours=3)
-
-    # Checking the lat and lon information
+    # Then checking the lat and lon information
     lat, lon = location.get("lat"), location.get("lng")
     if not lat or not lon:
         logger.error(f"It was not possible to continue the mapping of the data, coordinates corrupted.")
