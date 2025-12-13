@@ -33,6 +33,7 @@ def map_location_data(device_id: str, location: dict) -> dict:
         "timestamp": date_time,
         "latitude": location.get("lat"),
         "longitude": location.get("lng"),
+        "satellites": 6
     }
     
     return mapped_data
