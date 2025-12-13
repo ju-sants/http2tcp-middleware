@@ -255,15 +255,26 @@ class SessionsManager:
 
     def __init__(self):
         self.sessions = {}
-        self.lock = threading.RLock()
+        self.lock = threading.RLock() # To manage concurrent access to the sessions dictionary
 
     def get_session(self, device_id: str, input_source: str, output_protocol: str) -> MainServerSession:
         """
         Retrieve or create a session for the given device ID.
+        
+        :param device_id: Device identifier
+        :type device_id: str
+        :param input_source: Input source module name
+        :type input_source: str
+        :param output_protocol: Output protocol type
+        :type output_protocol: str
+        :return: MainServerSession instance
+        :rtype: MainServerSession
         """
 
         with self.lock:
-            if device_id not in self.sessions:
+            if device_id not in self.sessions: # Create a new session if it doesn't exist
+                logger.info(f"Creating new session for device ID {device_id}.")
+
                 self.sessions[device_id] = MainServerSession(device_id, input_source, output_protocol)
             
             return self.sessions[device_id]
@@ -271,6 +282,9 @@ class SessionsManager:
     def remove_session(self, device_id: str):
         """
         Remove and disconnect the session for the given device ID.
+        
+        :param device_id: Device identifier
+        :type device_id: str
         """
 
         with self.lock:
@@ -283,17 +297,22 @@ class SessionsManager:
     def exists(self, device_id: str) -> bool:
         """
         Check if a session exists for the given device ID.
+        
+        :param device_id: Device identifier
+        :type device_id: str
+        :return: Boolean indicating existence of session
+        :rtype: bool
         """
 
         with self.lock:
             if device_id in self.sessions:
-                socket_obj = self.sessions[device_id].sock
+                socket_obj = self.sessions[device_id].sock # Get the socket object
                 if socket_obj is None:
                     return False
                 
                 try:
-                    socket_obj.getpeername()
-                    return socket_obj.fileno() != -1
+                    socket_obj.getpeername() # Check if socket is connected
+                    return socket_obj.fileno() != -1 # Check if socket is valid
                 except socket.error:
                     return False
                 
@@ -302,7 +321,21 @@ class SessionsManager:
     def send_data(self, device_id: str, input_source: str, output_protocol: str, data: bytes, packet_type: str = "location"):
         """
         Send data through the session for the given device ID.
+        
+        :param device_id: Device identifier
+        :type device_id: str
+        :param input_source: Input source module name
+        :type input_source: str
+        :param output_protocol: Output protocol type
+        :type output_protocol: str
+        :param data: Data to send
+        :type data: bytes
+        :param packet_type: Type of packet being sent (e.g., "location", "info")
+        :type packet_type: str
         """
 
+        # Retrieve the session from the manager
         session = self.get_session(device_id, input_source, output_protocol)
+
+        # Send the data using the session's send method
         session._send_data(data, current_output_protocol=output_protocol, packet_type=packet_type)
