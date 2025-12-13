@@ -246,3 +246,63 @@ class MainServerSession:
             except Exception as e:
                 logger.error(f"Failed to send data to main server: {e}")
                 self.disconnect()
+
+
+class SessionsManager:
+    """
+    Manages multiple MainServerSession instances.
+    """
+
+    def __init__(self):
+        self.sessions = {}
+        self.lock = threading.RLock()
+
+    def get_session(self, device_id: str, input_source: str, output_protocol: str) -> MainServerSession:
+        """
+        Retrieve or create a session for the given device ID.
+        """
+
+        with self.lock:
+            if device_id not in self.sessions:
+                self.sessions[device_id] = MainServerSession(device_id, input_source, output_protocol)
+            
+            return self.sessions[device_id]
+    
+    def remove_session(self, device_id: str):
+        """
+        Remove and disconnect the session for the given device ID.
+        """
+
+        with self.lock:
+            session = self.sessions.pop(device_id, None)
+            if session:
+                session.disconnect()
+
+                logger.info(f"Session for device ID {device_id} removed and disconnected.")
+
+    def exists(self, device_id: str) -> bool:
+        """
+        Check if a session exists for the given device ID.
+        """
+
+        with self.lock:
+            if device_id in self.sessions:
+                socket_obj = self.sessions[device_id].sock
+                if socket_obj is None:
+                    return False
+                
+                try:
+                    socket_obj.getpeername()
+                    return socket_obj.fileno() != -1
+                except socket.error:
+                    return False
+                
+            return False
+        
+    def send_data(self, device_id: str, input_source: str, output_protocol: str, data: bytes, packet_type: str = "location"):
+        """
+        Send data through the session for the given device ID.
+        """
+
+        session = self.get_session(device_id, input_source, output_protocol)
+        session._send_data(data, current_output_protocol=output_protocol, packet_type=packet_type)
