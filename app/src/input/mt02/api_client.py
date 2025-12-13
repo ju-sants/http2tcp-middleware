@@ -28,14 +28,52 @@ class MT02ApiClient:
     # Method to fetch the list of devices from the MT02 API.
     def fetch_devices(self):
         try:
+            
+            # Preparing requests.get arguments
+            url = f"{settings.MT02_API_BASE_URL}/tag/all"
+            params = {
+                "isActived": True,
+            }
+            headers = self._get_headers()
 
-            return []  # Placeholder for actual API call
+            # Preparing list to store all tags
+            all_devices = []
+            
+            # Starting the current page
+            current_page = 1
+            while True:
+                # Passing the current page as a parameter
+                params["page"] = current_page
+
+                # Requesting response
+                response = requests.get(url, params, headers=headers)
+                response.raise_for_status() # To catch HTTP errors
+
+                # Getting the json data as a dict
+                page_data = response.json()
+                
+                # Checking if there are devices on this page
+                if not page_data.get("data"):
+                    break
+                
+                # Storing devices
+                all_devices += page_data["data"]
+
+                # Turning page
+                current_page += 1
+
+            # Returning all devices encontered
+            return all_devices
         
         except requests.RequestException as e:
             logger.info(f"Error fetching devices: {e}")
+
+            return []
         
         except Exception as e:
             logger.info(f"Unexpected error: {e}")
+
+            return []
 
     # Method to fetch location data for a specific device by its ID.
     def fetch_device_location(self, device_id: str):
