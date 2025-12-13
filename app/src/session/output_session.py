@@ -199,6 +199,24 @@ class MainServerSession:
                 logger.error(f"Unexpected error while listening to server: {e}")
                 self.disconnect()
                 return
+            
+    def _restore_heartbeat_timer(self):
+        """
+        Restores the internal heartbeat timer
+        """
+
+        try:
+            # First we cancel the timer
+            self._heartbeat_timer.cancel()
+            
+            # Then we clean the object from the memory
+            self._heartbeat_timer = None
+            
+            # So on, we can create a new object, this "resets" the timer
+            self._heartbeat_timer = threading.Timer(30, self._heartbeat) 
+        
+        except Exception as e:
+            logger.error(f"There was an error resetting the heartbeat timer: {e}")
     
     def _heartbeat(self):
         """
@@ -218,6 +236,9 @@ class MainServerSession:
 
             # Sending it
             self._send_data(heartbeat_packet, self.output_protocol, "heartbeat")
+
+            # Restoring the timer
+            self._restore_heartbeat_timer()
 
             # Returning a flag to threading.Timer
             return True
@@ -276,14 +297,7 @@ class MainServerSession:
 
                 # Reseting the heartbeat timer
                 if packet_type != "heartbeat":
-                    # First we cancel the timer
-                    self._heartbeat_timer.cancel()
-                    
-                    # Then we clean the object from the memory
-                    self._heartbeat_timer = None
-                    
-                    # So on, we can create a new object, this "resets" the timer
-                    self._heartbeat_timer = threading.Timer(30, self._heartbeat) 
+                    self._restore_heartbeat_timer()
 
             except Exception as e:
                 logger.error(f"Failed to send data to main server: {e}")
