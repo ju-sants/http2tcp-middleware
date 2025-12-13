@@ -26,7 +26,10 @@ class MainServerSession:
         self.output_protocol = output_protocol # Output protocol type (e.g., "gt06", "suntech4g")
 
         # HeartBeat Timer
-        self._heartbeat_timer = threading.Timer(30, self._heartbeat)
+        # Using threading.Timer because it runs a thread internally that waits until the time has come
+        # And executes the function defined here. Later, in _send_data method we reset this timer. 
+        # Every time the device sends data.
+        self._heartbeat_timer = threading.Timer(30, self._heartbeat) 
 
         # Socket for TCP communication with the main server
         self.sock: socket.socket | None = None
@@ -202,15 +205,19 @@ class MainServerSession:
         Used if the device does'nt send data so often.
         """
 
+        # Get the heartbeat packet builder for the current output protocol
         packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol, {}).get("heartbeat")
         if not packet_builder:
             logger.error(f"No HeartBeat packet builder defined for {self.output_protocol}.")
             return
         
+        # Building the heartbeat packet
         heartbeat_packet = packet_builder(self.device_id)
 
+        # Sending it
         self._send_data(heartbeat_packet, self.output_protocol, "heartbeat")
 
+        # Returning a flag to threading.Timer
         return True
     
     def _send_data(self, data: bytes, current_output_protocol: str = None, packet_type: str = "location"):
@@ -265,10 +272,16 @@ class MainServerSession:
                 self.sock.sendall(data)
                 logger.info(f"Sent data to main server: {data.hex()}")
 
+                # Reseting the heartbeat timer
                 if packet_type != "heartbeat":
+                    # First we cancel the timer
                     self._heartbeat_timer.cancel()
+                    
+                    # Then we clean the object from the memory
                     self._heartbeat_timer = None
-                    self._heartbeat_timer = threading.Timer(30, self._heartbeat)
+                    
+                    # So on, we can create a new object, this "resets" the timer
+                    self._heartbeat_timer = threading.Timer(30, self._heartbeat) 
 
             except Exception as e:
                 logger.error(f"Failed to send data to main server: {e}")
