@@ -115,7 +115,7 @@ class MT02ApiClient:
             for device_id in devices:
                 location = self.fetch_device_location(device_id) # Fetch the location data
                 if location and location.get("data"):
-                    all_locations[device_id] = location["data"]
+                    all_locations[str(device_id)] = location["data"] # Converting dev id to str
 
             # Returning it
             return all_locations
