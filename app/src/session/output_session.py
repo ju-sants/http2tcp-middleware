@@ -368,9 +368,9 @@ class OutputProcessor:
         """
 
         if output_protocol == "suntech4g":
-            visual_packet = output_packet.decode("ascii", errors="ignore")
+            visual_packet = output_packet.decode("ascii", errors="ignore") # The suntechs binary packets are just text encoded to ASCII table.
         elif output_protocol == "gt06":
-            visual_packet = output_packet.hex()
+            visual_packet = output_packet.hex() # GT06 packets are more complex and need to be logged as HEXADECIMAL
 
         logger.info(f"Prepared {packet_type} packet for device {device_id} using protocol {output_protocol} from input source {input_source}: {output_packet.hex()}")
         logger.info(f"Visual representation of the packet: {visual_packet}")
@@ -385,13 +385,18 @@ class OutputProcessor:
         :rtype: str
         """
 
+        # Retrieving the device output protocol from the redis
         output_protocol = redis_client.hget(f"device:{device_id}", "output_protocol")
+
+        # If it does'nt have one, we attribute a default to it.
         if not output_protocol:
-            output_protocol = settings.DEFAULT_OUTPUT_PROTOCOL
+            output_protocol = settings.DEFAULT_OUTPUT_PROTOCOL # Default output protocol defined in settings 
             logger.info(f"No output protocol found in Redis for device {device_id}. Using default: {output_protocol}")
 
+            # Setting the output protocol for the next time it passes here
             redis_client.hset(f"device:{device_id}", "output_protocol", output_protocol)
 
+        # returning the output protocol
         return output_protocol
     
     def create_output_packet(self, device_id: str, structured_data: dict, output_protocol: str, packet_type: str = "location") -> bytes:
@@ -410,12 +415,17 @@ class OutputProcessor:
         :rtype: bytes
         """
 
+        # Based on the output protocol and the type of packet needed, we chase for the builder function
+        # Who will builds the binary packet from the structured python dictionary
         packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(output_protocol, {}).get(packet_type)
         if not packet_builder:
             logger.error(f"No packet builder defined for protocol {output_protocol} and packet type {packet_type}.")
             return b""
 
+        # Building the output_packet
         output_packet = packet_builder(device_id, structured_data, 0)
+        
+        # Returning it
         return output_packet
     
     def forward(self, device_id: str, structured_data: dict, input_source: str, packet_type: str = "location"):
@@ -434,12 +444,19 @@ class OutputProcessor:
         :type packet_type: str
         """
 
+        # Checking the output protocol
         output_protocol = self.check_output_protocol(device_id)
 
+        # Creating the output packet
         output_packet = self.create_output_packet(device_id, structured_data, output_protocol, packet_type)
 
+        # Logging it
         self.log_output_packet(device_id, input_source, output_protocol, output_packet, packet_type)
 
+        # Sending it
         self.sessions_manager.send_data(device_id, input_source, output_protocol, output_packet, packet_type)
 
+# Instanciatig the global object "output_processor"
+# All input sources MUST use only this object.
+# To use this by only calling "output_processor.forward(*args)" 
 output_processor = OutputProcessor()
