@@ -6,8 +6,10 @@ import time
 from app.core.logger import get_logger
 from app.config.settings import settings
 from app.src.output.output_mappers import output_mappers
+from app.services.redis_service import get_redis
 
 logger = get_logger(__name__)
+redis_client = get_redis()
 
 # This class manages the session with the main server
 # It handles connection, disconnection, sending and receiving data
@@ -339,3 +341,105 @@ class SessionsManager:
 
         # Send the data using the session's send method
         session._send_data(data, current_output_protocol=output_protocol, packet_type=packet_type)
+
+
+class OutputProcessor:
+    """
+    Processes outgoing data to be sent to the main server.
+    """
+
+    def __init__(self):
+        self.sessions_manager = SessionsManager()
+
+    def log_output_packet(self, device_id: str, input_source: str, output_protocol: str, output_packet: bytes, packet_type: str):
+        """
+        Log the output packet details.
+        
+        :param device_id: Device identifier
+        :type device_id: str
+        :param input_source: Input source module name
+        :type input_source: str
+        :param output_protocol: Output protocol type
+        :type output_protocol: str
+        :param output_packet: The output packet in bytes
+        :type output_packet: bytes
+        :param packet_type: Type of packet being sent (e.g., "location", "info")
+        :type packet_type: str
+        """
+
+        if output_protocol == "suntech4g":
+            visual_packet = output_packet.decode("ascii", errors="ignore")
+        elif output_protocol == "gt06":
+            visual_packet = output_packet.hex()
+
+        logger.info(f"Prepared {packet_type} packet for device {device_id} using protocol {output_protocol} from input source {input_source}: {output_packet.hex()}")
+        logger.info(f"Visual representation of the packet: {visual_packet}")
+
+    def check_output_protocol(self, device_id: str) -> str:
+        """
+        Check and retrieve the output protocol for the given device ID from Redis.
+        
+        :param device_id: Device identifier
+        :type device_id: str
+        :return: Output protocol type
+        :rtype: str
+        """
+
+        output_protocol = redis_client.hget(f"device:{device_id}", "output_protocol")
+        if not output_protocol:
+            output_protocol = settings.DEFAULT_OUTPUT_PROTOCOL
+            logger.info(f"No output protocol found in Redis for device {device_id}. Using default: {output_protocol}")
+
+            redis_client.hset(f"device:{device_id}", "output_protocol", output_protocol)
+
+        return output_protocol
+    
+    def create_output_packet(self, device_id: str, structured_data: dict, output_protocol: str, packet_type: str = "location") -> bytes:
+        """
+        Create an output packet based on the output protocol.
+        
+        :param device_id: Device identifier
+        :type device_id: str
+        :param data: A structured data dictionary to be converted to bytes
+        :type data: dict
+        :param output_protocol: Output protocol type
+        :type output_protocol: str
+        :param packet_type: Type of packet being sent (e.g., "location", "info")
+        :type packet_type: str
+        :return: Formatted output packet
+        :rtype: bytes
+        """
+
+        packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(output_protocol, {}).get(packet_type)
+        if not packet_builder:
+            logger.error(f"No packet builder defined for protocol {output_protocol} and packet type {packet_type}.")
+            return b""
+
+        output_packet = packet_builder(device_id, structured_data, 0)
+        return output_packet
+    
+    def forward(self, device_id: str, structured_data: dict, input_source: str, packet_type: str = "location"):
+        """
+        Forward data to the main server via the appropriate session.
+        
+        :param device_id: Device identifier
+        :type device_id: str
+        :param input_source: Input source module name
+        :type input_source: str
+        :param output_protocol: Output protocol type
+        :type output_protocol: str
+        :param structured_data: A structured data dictionary to be converted to bytes
+        :type data: dict
+        :param packet_type: Type of packet being sent (e.g., "location", "info")
+        :type packet_type: str
+        """
+
+        output_protocol = self.check_output_protocol(device_id)
+
+        output_packet = self.create_output_packet(device_id, structured_data, output_protocol, packet_type)
+
+        self.log_output_packet(device_id, input_source, output_protocol, output_packet, packet_type)
+
+        self.sessions_manager.send_data(device_id, input_source, output_protocol, output_packet, packet_type)
+
+output_processor = OutputProcessor()
