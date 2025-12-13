@@ -1,4 +1,5 @@
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 from app.core.logger import get_logger
 
@@ -18,8 +19,18 @@ def map_location_data(device_id: str, location: dict) -> dict:
 
     logger.info(f"Mapping location data for device {device_id}: {location}")
 
+    # The timestamp of the MT02 tag is in UTC-3 timezone
+    # But the majority of geolocation server accept only UTC time zones
+    # So we adding 3 more hours to the date time
+
+    # First converting it
+    date_time = datetime.fromtimestamp(location.get("timestamp", 0))
+
+    # Then adding the hours
+    date_time += relativedelta(hours=3)
+
     mapped_data = {
-        "timestamp": datetime.fromtimestamp(location.get("timestamp", 0)),
+        "timestamp": date_time,
         "latitude": location.get("lat"),
         "longitude": location.get("lng"),
     }
