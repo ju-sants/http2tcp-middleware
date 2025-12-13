@@ -32,7 +32,9 @@ class Settings(BaseSettings):
         "suntech4g": (os.getenv("SUNTECH_MAIN_SERVER_HOST"), os.getenv("SUNTECH_MAIN_SERVER_PORT")),
         "gt06": (os.getenv("GT06_MAIN_SERVER_HOST"), os.getenv("GT06_MAIN_SERVER_PORT"))
     }
-
+    
+    DEFAULT_OUTPUT_PROTOCOL: str = "gt06"
+    
     # GT06
     GT06_LOCATION_PACKET_PROTOCOL_NUMBER: int = 0xA0 # Can be: 0x22, 0x32, 0xA0. For more informations consult the protocol guide.
 
