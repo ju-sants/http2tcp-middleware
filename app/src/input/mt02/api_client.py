@@ -68,24 +68,28 @@ class MT02ApiClient:
         except requests.RequestException as e:
             logger.info(f"Error fetching devices: {e}")
 
-            return []
+            return [] # To always receive a list
         
         except Exception as e:
             logger.info(f"Unexpected error: {e}")
 
-            return []
+            return [] # To always receive a list
 
     # Method to fetch location data for a specific device by its ID.
     def fetch_device_location(self, device_id: str):
         try:
+            # Preparing requests.get arguments
             url = f"{settings.MT02_API_BASE_URL}/tag"
-            params = {"ids": device_id}
+            params = {
+                "ids": device_id
+            }
             headers = self._get_headers()
 
+            # Requesting the response
             response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
+            response.raise_for_status() # To catch HTTP errors
 
-            return response.json()
+            return response.json() # Returning the json location data as a dict
         
         except requests.RequestException as e:
             logger.info(f"Error fetching location for device {device_id}: {e}")
@@ -96,18 +100,24 @@ class MT02ApiClient:
     # Method to fetch location data for all devices.
     def fetch_all(self):
         try:
+            # First we fetch all devices for the given token
             devices = self.fetch_devices()
-            all_locations = {}
 
+            # Checking if there are any device
             if not devices:
                 logger.info("No devices found.")
                 return all_locations
-
+            
+            # If there are, declaring a variable store all locations from the devices previously fetched
+            all_locations = {}
+            
+            # For each device, we fetch the device location and stores it in "all_locations"
             for device_id in devices:
-                location = self.fetch_device_location(device_id)
+                location = self.fetch_device_location(device_id) # Fetch the location data
                 if location:
-                    all_locations[device_id] = location
+                    all_locations[device_id] = location # Storing
 
+            # Returning it
             return all_locations
         
         except Exception as e:
