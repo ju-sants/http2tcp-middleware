@@ -33,7 +33,7 @@ def map_location_data(device_id: str, location: dict) -> dict:
         "timestamp": date_time,
         "latitude": location.get("lat"),
         "longitude": location.get("lng"),
-        "satellites": 6
+        "satellites": 6 # Mock satellites so the server can accept our packets
     }
     
     return mapped_data
