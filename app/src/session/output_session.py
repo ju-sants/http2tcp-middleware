@@ -139,44 +139,45 @@ class MainServerSession:
 
         while self._is_connected:
             try:
-                if not self.sock:
-                    logger.error(f"Socket is not connected. Cannot listen to server.")
-                    return
+                with logger.contextualize(log_label=self.device_id):
+                    if not self.sock:
+                        logger.error(f"Socket is not connected. Cannot listen to server.")
+                        return
 
-                data = self.sock.recv(4096) # Receive up to 4096 bytes
-                if not data:
-                    logger.warning(f"Connection to main server lost.")
-                    self.disconnect()
-                    return
+                    data = self.sock.recv(4096) # Receive up to 4096 bytes
+                    if not data:
+                        logger.warning(f"Connection to main server lost.")
+                        self.disconnect()
+                        return
 
-                # If in GT06 login step and data is received, consider login step complete
-                if self._is_gt06_login_step:
-                    logger.info(f"GT06 login step completed.")
-                    self._is_gt06_login_step = False
-                    continue
-                
-                # Else process the incoming data as a command
-                mapper_func = output_mappers.OUTPUT_COMMAND_MAPPERS.get(self.output_protocol)
-                if not mapper_func:
-                    logger.warning(f"No command mapper defined for protocol {self.output_protocol}. Cannot process incoming data.")
-                    continue
-                
-                # Map the incoming data to a universal command format
-                universal_command = mapper_func(data)
-                if not universal_command:
-                    logger.warning(f"Failed to map incoming data to universal command for protocol {self.output_protocol}.")
-                    continue
-                
-                # Dynamically import the target input module's command processor
-                target_module = importlib.import_module(f"app.src.input.{self.input_source}.builder")
-                builder_func = getattr(target_module, f"process_command", None)
-                if not builder_func:
-                    logger.warning(f"No command processor defined in module for protocol {self.output_protocol}.")
-                    continue
-                
-                # Forward the universal command to the input processor
-                logger.info(f"Routing command to input processor {self.input_source} for protocol {self.output_protocol}.")
-                builder_func(self.device_id, universal_command)
+                    # If in GT06 login step and data is received, consider login step complete
+                    if self._is_gt06_login_step:
+                        logger.info(f"GT06 login step completed.")
+                        self._is_gt06_login_step = False
+                        continue
+                    
+                    # Else process the incoming data as a command
+                    mapper_func = output_mappers.OUTPUT_COMMAND_MAPPERS.get(self.output_protocol)
+                    if not mapper_func:
+                        logger.warning(f"No command mapper defined for protocol {self.output_protocol}. Cannot process incoming data.")
+                        continue
+                    
+                    # Map the incoming data to a universal command format
+                    universal_command = mapper_func(data)
+                    if not universal_command:
+                        logger.warning(f"Failed to map incoming data to universal command for protocol {self.output_protocol}.")
+                        continue
+                    
+                    # Dynamically import the target input module's command processor
+                    target_module = importlib.import_module(f"app.src.input.{self.input_source}.builder")
+                    builder_func = getattr(target_module, f"process_command", None)
+                    if not builder_func:
+                        logger.warning(f"No command processor defined in module for protocol {self.output_protocol}.")
+                        continue
+                    
+                    # Forward the universal command to the input processor
+                    logger.info(f"Routing command to input processor {self.input_source} for protocol {self.output_protocol}.")
+                    builder_func(self.device_id, universal_command)
 
             except socket.timeout:
                 continue
@@ -205,20 +206,21 @@ class MainServerSession:
         Used if the device does'nt send data so often.
         """
 
-        # Get the heartbeat packet builder for the current output protocol
-        packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol, {}).get("heartbeat")
-        if not packet_builder:
-            logger.error(f"No HeartBeat packet builder defined for {self.output_protocol}.")
-            return
-        
-        # Building the heartbeat packet
-        heartbeat_packet = packet_builder(self.device_id)
+        with logger.contextualize(log_label=self.device_id):
+            # Get the heartbeat packet builder for the current output protocol
+            packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol, {}).get("heartbeat")
+            if not packet_builder:
+                logger.error(f"No HeartBeat packet builder defined for {self.output_protocol}.")
+                return
+            
+            # Building the heartbeat packet
+            heartbeat_packet = packet_builder(self.device_id)
 
-        # Sending it
-        self._send_data(heartbeat_packet, self.output_protocol, "heartbeat")
+            # Sending it
+            self._send_data(heartbeat_packet, self.output_protocol, "heartbeat")
 
-        # Returning a flag to threading.Timer
-        return True
+            # Returning a flag to threading.Timer
+            return True
     
     def _send_data(self, data: bytes, current_output_protocol: str = None, packet_type: str = "location"):
         """

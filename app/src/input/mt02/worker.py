@@ -22,29 +22,35 @@ def worker():
             # Fetch all location data from the API.
             locations = api_client.fetch_all()
             if not locations:
-                logger.info("No location data retrieved this time.")
+                logger.info("No location data retrieved this time.", log_label="SERVER")
                 continue
 
-            logger.info(f"Fetched locations for {len(locations)} devices.")
+            logger.info(f"Fetched locations for {len(locations)} devices.", log_label="SERVER")
 
             # For each location, we check if the data was already processed in a past iteration.
-            for device_id, location in locations.items():
-                device_key = f"device:mt02:{device_id}"
-                last_processed_timestamp = redis_client.hget(device_key, "last_timestamp")
+            for device_id, locations in locations.items():
+                with logger.contextualize(log_label=device_id): # Contextualizing the logs in this blok of code
 
-                # If the location data is new (not processed before), we store it in Redis.
-                is_new = not last_processed_timestamp or int(location['timestamp']) > int(last_processed_timestamp)
-                if not is_new:
-                    logger.info(f"No new location for device {device_id}.")
-                    continue
-                
-                # Store the new location timestamp in Redis to mark it as processed.
-                redis_client.hset(device_key, "last_timestamp", location["timestamp"])
-                logger.info(f"New location for device {device_id}: {location}")
+                    for location in sorted_locations:
+                        device_key = f"device:mt02:{device_id}"
+                        last_processed_timestamp = redis_client.hget(device_key, "last_timestamp")
+                        
+                        # If the location data is new (not processed before), we store it in Redis.
+                        is_new = not last_processed_timestamp or int(location['timestamp']) > int(last_processed_timestamp)
+                        if not is_new:
+                            logger.info(f"No new location for device {device_id}.")
+                            continue
+                        
+                        # Store the new location timestamp in Redis to mark it as processed.
+                        redis_client.hset(device_key, "last_timestamp", location["timestamp"])
+                        logger.info(f"New location for device {device_id}: {location}")
 
-                # Pass the new location to the processor for further handling.
-                threading.Thread(target=processor.process_location, args=(device_id, location)).start()
+                        # Pass the new location to the processor for further handling.
+                        threading.Thread(target=processor.process_location, args=(device_id, location)).start()
+
+
+            time.sleep(settings.MT02_WORKER_SLEEP_SECONDS) # Sleeping to not overload the server
 
         except Exception as e:
-            logger.info(f"Error in worker loop: {e}")
+            logger.info(f"Error in worker loop: {e}", log_label="SERVER")
         

@@ -15,10 +15,11 @@ def process_location(device_id: str, location: dict):
     :type location: dict
     """
 
-    logger.info(f"Processing location for device {device_id}: {location}")
+    with logger.contextualize(log_label=device_id):
+        logger.info(f"Processing location for device {device_id}: {location}")
 
-    # Map the location data to the internal format
-    mapped_data = mapper.map_location_data(device_id, location)
+        # Map the location data to the internal format
+        mapped_data = mapper.map_location_data(device_id, location)
 
-    # Forward the mapped data to the output processor
-    output_processor.forward(device_id, mapped_data)
+        # Forward the mapped data to the output processor
+        output_processor.forward(device_id, mapped_data, "mt02")
