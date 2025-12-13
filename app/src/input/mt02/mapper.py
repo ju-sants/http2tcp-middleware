@@ -32,29 +32,44 @@ def map_location_data(device_id: str, location: dict) -> dict:
     # Then adding the hours
     date_time += relativedelta(hours=3)
 
+    # Checking the lat and lon information
     lat, lon = location.get("lat"), location.get("lng")
     if not lat or not lon:
         logger.error(f"It was not possible to continue the mapping of the data, coordinates corrupted.")
         return {}
     
+    # If the lat and lon are reliable, lets construct the redis device key
     device_key = device_key = f"device:mt02:{device_id}"
 
+    # Retrieve the last_odometer from redis
     odometer = redis_client.hget(device_key, "last_odometer")
+    
+    # If there are no odometer set it to 0
     if not odometer:
         odometer = 0
 
+    # Retrieve the last lat and last lon from redis
     last_lat, last_lon = redis_client.hmget(device_key, "last_lat", "last_lon")
+    
+    # If there are last lat and lon, lets confirm that they are float types
+    # And pass they to the haversine fórmula function
     if last_lat and last_lon:
-        args = list(map(float, [lat, lon, last_lat, last_lon]))
+        args = list(map(float, [lat, lon, last_lat, last_lon])) # mapping float to every member of the iterable
 
+        # Calculate haversine
         meters_calculated = input_source_utils.haversine(*args)
+        
+        # Adds it to odometer
         odometer += meters_calculated
 
+        # Save it to redis, so the next time it will be set
         redis_client.hset(device_key, "last_odometer", odometer)
 
     else:
+        # If there are not last lat and lon, lets return the 0 odometer
         logger.warning(f"There are not coordinates stored in the devices state storage. Continue with 0 odometer")
-        
+    
+    # Mapping the data to a structured python dict
     mapped_data = {
         "timestamp": date_time,
         "latitude": lat,
@@ -63,4 +78,5 @@ def map_location_data(device_id: str, location: dict) -> dict:
         "gps_odometer": odometer,
     }
     
+    # Returning it
     return mapped_data
