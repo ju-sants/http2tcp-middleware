@@ -114,8 +114,8 @@ class MT02ApiClient:
             # For each device, we fetch the device location and stores it in "all_locations"
             for device_id in devices:
                 location = self.fetch_device_location(device_id) # Fetch the location data
-                if location:
-                    all_locations[device_id] = location # Storing
+                if location and location.get("data"):
+                    all_locations[device_id] = location["data"]
 
             # Returning it
             return all_locations

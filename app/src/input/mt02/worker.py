@@ -1,4 +1,6 @@
 import threading
+import time
+from datetime import datetime
 
 from . import processor
 from .api_client import MT02ApiClient
@@ -30,6 +32,9 @@ def worker():
             # For each location, we check if the data was already processed in a past iteration.
             for device_id, locations in locations.items():
                 with logger.contextualize(log_label=device_id): # Contextualizing the logs in this blok of code
+
+                    # Sorting the locations by date, and sending it in reverse order, from the past to the present
+                    sorted_locations = sorted(locations, key=lambda x: datetime.fromtimestamp(x.get("timestamp", 0)), reverse=True)
 
                     for location in sorted_locations:
                         device_key = f"device:mt02:{device_id}"
