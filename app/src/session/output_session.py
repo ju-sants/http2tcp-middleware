@@ -25,6 +25,9 @@ class MainServerSession:
         self.input_source = input_source
         self.output_protocol = output_protocol # Output protocol type (e.g., "gt06", "suntech4g")
 
+        # HeartBeat Timer
+        self._heartbeat_timer = threading.Timer(30, self._heartbeat)
+
         # Socket for TCP communication with the main server
         self.sock: socket.socket | None = None
         self.lock = threading.RLock() # To manage concurrent access to the socket and use recursive calls
@@ -192,7 +195,24 @@ class MainServerSession:
                 logger.error(f"Unexpected error while listening to server: {e}")
                 self.disconnect()
                 return
-            
+    
+    def _heartbeat(self):
+        """
+        Sends a HeartBeat (HBT) packet to maintain the connection alive.
+        Used if the device does'nt send data so often.
+        """
+
+        packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol, {}).get("heartbeat")
+        if not packet_builder:
+            logger.error(f"No HeartBeat packet builder defined for {self.output_protocol}.")
+            return
+        
+        heartbeat_packet = packet_builder(self.device_id)
+
+        self._send_data(heartbeat_packet, self.output_protocol, "heartbeat")
+
+        return True
+    
     def _send_data(self, data: bytes, current_output_protocol: str = None, packet_type: str = "location"):
         """
         Send data to the main server.
@@ -244,6 +264,11 @@ class MainServerSession:
             try:
                 self.sock.sendall(data)
                 logger.info(f"Sent data to main server: {data.hex()}")
+
+                if packet_type != "heartbeat":
+                    self._heartbeat_timer.cancel()
+                    self._heartbeat_timer = None
+                    self._heartbeat_timer = threading.Timer(30, self._heartbeat)
 
             except Exception as e:
                 logger.error(f"Failed to send data to main server: {e}")
