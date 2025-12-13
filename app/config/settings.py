@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # MT02 Input Source Config
     MT02_API_BASE_URL: str = "..."
     MT02_API_KEY: str = "..."
+    MT02_WORKER_SLEEP_SECONDS: int = 300
 
     # --- OUTPUT PROTOCOLS CONFIG ---
     # GENERAL

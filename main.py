@@ -32,5 +32,12 @@ def main():
 
             threading.Thread(target=target_func, daemon=True).start()
 
+    
+        try:
+            while True:
+                threading.Event().wait(60) # Wait for not to consume CPU
+        except KeyboardInterrupt:
+            logger.warning("server is being shut down...")
+
 if __name__ == "__main__":
     main()
