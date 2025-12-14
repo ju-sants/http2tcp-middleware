@@ -247,27 +247,26 @@ def build_login_packet(dev_id: str, serial_number: int) -> bytes:
     return full_packet
 
 
-def build_heartbeat_packet(dev_id: str, acc_status: int, output_status: int, serial_number: int, voltage_level: int, *args) -> bytes:
+def build_heartbeat_packet(dev_id: str, status_kwargs: dict = {}) -> bytes:
     """
     Build a HeartBeat Packet (HBT) used to keep the TCP connection alive
     when the device does not send data very often
     
     :param dev_id: Device Identifier
     :type dev_id: str
-    :param acc_status: Used for devices that are connected to a vehicle ignition system
-    :type acc_status: int
-    :param output_status: Used to indicate the status of the output port in devices that support this feature
-    :type output_status: int
-    :param serial_number: Number of this packet
-    :type serial_number: int
-    :param voltage_level: Voltage level of the device battery
-    :type voltage_level: int
-    :param args: Optional args, mainteined for compatibility
+    :param status_kwargs: Arguments containing the status of the device
+    :type status_kwargs: dict
     :return: Returns the heartbeat binary packet
     :rtype: bytes
     """
     
-    logger.info(f"Building GT06 Heartbeat packet for device {dev_id} with ACC status {acc_status}, Output status {output_status}, Voltage level {voltage_level} and Serial number {serial_number}")
+    logger.info(f"Building GT06 Heartbeat packet for device {dev_id}")
+
+    # Retrieving information from status_kwargs
+    acc_status = status_kwargs.get("acc_status", 1)
+    output_status = status_kwargs.get("output_status", 0)
+    voltage_level = status_kwargs.get("voltage_level", 5)
+    serial_number = status_kwargs.get("serial_number", 5)
 
     # The default protocol number for login packets is 0x13
     protocol_number = 0x13
