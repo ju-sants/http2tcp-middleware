@@ -246,7 +246,7 @@ class MainServerSession:
         """
 
         # Method to get the voltage of the device from his state storage
-        def __get_device_voltage(self):
+        def __get_device_voltage():
             """
             This is a very specific method, that allow the instance to retrieve voltage information
             from the device state storage
