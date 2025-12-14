@@ -61,14 +61,33 @@ def map_location_data(device_id: str, location: dict) -> dict:
     else:
         # If there are not last lat and lon, lets return the 0 odometer
         logger.warning(f"There are not coordinates stored in the devices state storage. Continue with 0 odometer")
+
+    # ---
     
-    # Mapping the data to a structured python dict
+    # Now, lets gave the "baterry" information of the mt02 location data some meaning
+
+    # Getting the voltage level from the location data
+    battery_level = location.get("battery", 0)
+
+    battery_based_voltage = None # Its a voltage that instead of the voltage of the battery, represents the level of it
+    if battery_level and battery_level != -1: # If theres a battery level
+
+        # Calculate the percentage of it with a math fórmula
+        battery_based_voltage = (battery_level * 100) / 3
+
+        # This way, we can use the voltage field on the binary packet to represent the battery of the device
+    
+    # ---
+    
+    # Mapping the data
+    #  to a structured python dict
     mapped_data = {
         "timestamp": date_time,
         "latitude": lat,
         "longitude": lon,
         "satellites": 6, # Mock satellites so the server can accept our packets
         "gps_odometer": odometer,
+        "voltage": battery_based_voltage or 1.11,
     }
     
     # Returning it
