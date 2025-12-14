@@ -267,7 +267,10 @@ class MainServerSession:
                 while self._is_gt06_login_step:
                     time.sleep(0.1)
 
-                logger.info(f"GT06 login step completed, proceeding to send data.")
+                logger.info(f"GT06 login step completed, proceeding to send heartbeat.")
+
+                # Sending a heartbeat to the cold connection
+                self._heartbeat()
             
             # For GT06 protocol, send a Voltage packet before location data
             if packet_type == "location":
