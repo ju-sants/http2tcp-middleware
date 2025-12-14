@@ -253,6 +253,42 @@ class MainServerSession:
         # returning it
         return float(voltage)
     
+    def _handle_protocol_specific_behaviors(self, packet_type: str):
+        """
+        This method was implemented to handle protocol-specific before sending data
+        """
+
+        # First the behaviors of GT06 output protocol
+        if self.output_protocol == "gt06":
+            if self._is_gt06_login_step and packet_type != "login":
+                logger.info(f"Currently in GT06 login step, delaying data send.")
+                
+                while self._is_gt06_login_step:
+                    time.sleep(0.1)
+
+                logger.info(f"GT06 login step completed, proceeding to send data.")
+            
+            # For GT06 protocol, send a Voltage packet before location data
+            if packet_type == "location":
+                logger.info(f"Sending Voltage packet before location data for GT06 protocol.")
+
+                # First lets get the voltage packet builder from the output protocol
+                voltage_packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol).get("info")
+                if voltage_packet_builder:
+                    # If there are a voltage packet builder, lets get the device last voltage information
+                    voltage = self.__get_device_voltage()
+
+                    # Now lets build it
+                    voltage_packet = voltage_packet_builder(self.device_id, voltage=voltage, serial_number=0)
+                    try:
+                        # sending the voltage information packet
+                        self.sock.sendall(voltage_packet)
+                        logger.info(f"Sent Voltage packet to main server: {voltage_packet.hex()}")
+                    except Exception as e:
+                        logger.error(f"Failed to send Voltage packet to main server: {e}")
+                        self.disconnect()
+                        return
+            
     def _send_data(self, data: bytes, current_output_protocol: str = None, packet_type: str = "location"):
         """
         Send data to the main server.
@@ -278,35 +314,8 @@ class MainServerSession:
                     return
             
             # Handle protocol-specific behaviors before sending data
-            if self._is_gt06_login_step and packet_type != "login":
-                logger.info(f"Currently in GT06 login step, delaying data send.")
-                
-                while self._is_gt06_login_step:
-                    time.sleep(0.1)
+            self._handle_protocol_specific_behaviors(packet_type)
 
-                logger.info(f"GT06 login step completed, proceeding to send data.")
-
-            # For GT06 protocol, send a Voltage packet before location data
-            if self.output_protocol == "gt06" and packet_type == "location":
-                logger.info(f"Sending Voltage packet before location data for GT06 protocol.")
-
-                # First lets get the voltage packet builder from the output protocol
-                voltage_packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol).get("info")
-                if voltage_packet_builder:
-                    # If there are a voltage packet builder, lets get the device last voltage information
-                    voltage = self.__get_device_voltage()
-
-                    # Now lets build it
-                    voltage_packet = voltage_packet_builder(self.device_id, voltage=voltage, serial_number=0)
-                    try:
-                        # sending the voltage information packet
-                        self.sock.sendall(voltage_packet)
-                        logger.info(f"Sent Voltage packet to main server: {voltage_packet.hex()}")
-                    except Exception as e:
-                        logger.error(f"Failed to send Voltage packet to main server: {e}")
-                        self.disconnect()
-                        return
-            
             # Send the actual data packet
             try:
                 self.sock.sendall(data)
