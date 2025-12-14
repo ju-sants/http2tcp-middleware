@@ -76,6 +76,9 @@ def map_location_data(device_id: str, location: dict) -> dict:
         battery_based_voltage = (battery_level * 100) / 3
 
         # This way, we can use the voltage field on the binary packet to represent the battery of the device
+
+        # Saving it on the device state storage
+        redis_client.hset(device_key, "voltage", battery_based_voltage)
     
     # ---
     

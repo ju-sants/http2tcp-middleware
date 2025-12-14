@@ -243,6 +243,19 @@ class MainServerSession:
             # Returning a flag to threading.Timer
             return True
     
+    def __get_device_voltage(self):
+        """
+        This is a very specific method, that allow the instance to retrieve voltage information
+        from the device state storage
+        """
+
+        # Here, we can use the instance of a input sessions manager to retrieve this information
+        # But for now, lets use the voltage saved on the redis state storage
+        voltage = redis_client.hget(f"device:{self.input_source}:{self.device_id}", "voltage") or 1.11 # Default fallback value
+
+        # returning it
+        return float(voltage)
+    
     def _send_data(self, data: bytes, current_output_protocol: str = None, packet_type: str = "location"):
         """
         Send data to the main server.
@@ -279,10 +292,17 @@ class MainServerSession:
             # For GT06 protocol, send a Voltage packet before location data
             if self.output_protocol == "gt06" and packet_type == "location":
                 logger.info(f"Sending Voltage packet before location data for GT06 protocol.")
+
+                # First lets get the voltage packet builder from the output protocol
                 voltage_packet_builder = output_mappers.OUTPUT_PACKET_BUILDERS.get(self.output_protocol).get("info")
                 if voltage_packet_builder:
-                    voltage_packet = voltage_packet_builder(self.device_id, voltage=1.11, serial_number=0)
+                    # If there are a voltage packet builder, lets get the device last voltage information
+                    voltage = self.__get_device_voltage()
+
+                    # Now lets build it
+                    voltage_packet = voltage_packet_builder(self.device_id, voltage=voltage, serial_number=0)
                     try:
+                        # sending the voltage information packet
                         self.sock.sendall(voltage_packet)
                         logger.info(f"Sent Voltage packet to main server: {voltage_packet.hex()}")
                     except Exception as e:
