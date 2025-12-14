@@ -237,9 +237,6 @@ class MainServerSession:
             # Sending it
             self._send_data(heartbeat_packet, self.output_protocol, "heartbeat")
 
-            # Restoring the timer
-            self._restore_heartbeat_timer()
-
             # Returning a flag to threading.Timer
             return True
     
@@ -316,8 +313,7 @@ class MainServerSession:
                 logger.info(f"Sent data to main server: {data.hex()}")
 
                 # Reseting the heartbeat timer
-                if packet_type != "heartbeat":
-                    self._restore_heartbeat_timer()
+                self._restore_heartbeat_timer()
 
             except Exception as e:
                 logger.error(f"Failed to send data to main server: {e}")
