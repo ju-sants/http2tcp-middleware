@@ -21,13 +21,14 @@ def worker():
     # Main loop of the worker, that runs indefinitely.
     while True:
         try:
-            # Fetch all location data from the API.
-            locations = api_client.fetch_all()
-            if not locations:
-                logger.info("No location data retrieved this time.", log_label="SERVER")
-                continue
+            with logger.contextualize(log_label="SERVER"):
+                # Fetch all location data from the API.
+                locations = api_client.fetch_all()
+                if not locations:
+                    logger.info("No location data retrieved this time.")
+                    continue
 
-            logger.info(f"Fetched locations for {len(locations)} devices.", log_label="SERVER")
+                logger.info(f"Fetched locations for {len(locations)} devices.")
 
             # For each location, we check if the data was already processed in a past iteration.
             for device_id, locations in locations.items():
