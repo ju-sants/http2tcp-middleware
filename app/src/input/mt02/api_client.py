@@ -106,7 +106,7 @@ class MT02ApiClient:
             # Checking if there are any device
             if not devices:
                 logger.info("No devices found.")
-                return all_locations
+                return {}
             
             # If there are, declaring a variable store all locations from the devices previously fetched
             all_locations = {}
