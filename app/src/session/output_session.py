@@ -30,6 +30,7 @@ class MainServerSession:
         # And executes the function defined here. Later, in _send_data method we reset this timer. 
         # Every time the device sends data.
         self._heartbeat_timer = threading.Timer(30, self._heartbeat) 
+        self._heartbeat_timer.start()
 
         # Socket for TCP communication with the main server
         self.sock: socket.socket | None = None
@@ -214,6 +215,7 @@ class MainServerSession:
             
             # So on, we can create a new object, this "resets" the timer
             self._heartbeat_timer = threading.Timer(30, self._heartbeat) 
+            self._heartbeat_timer.start()
         
         except Exception as e:
             logger.error(f"There was an error resetting the heartbeat timer: {e}")
